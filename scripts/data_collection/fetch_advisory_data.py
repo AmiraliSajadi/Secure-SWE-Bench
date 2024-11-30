@@ -35,6 +35,9 @@ EXTENSION_TO_LANGUAGE = {
     "xslt": "XSLT",
 }
 
+OWNER = "django"
+REPO = "django"
+
 http = urllib3.PoolManager()
 
 
@@ -183,15 +186,15 @@ def analyze_advisories(security_advisories):
                 cwe_ids = [cwe.get("cwe_id") for cwe in cwes]
                 severity = advisory.get("severity")
                 description = advisory.get("description")
+                references = advisory.get("references")
                 analyzed_advisories.append(
                     {
                         "GHSA ID": ghsa_id,
                         "CVE ID": cve_id,
                         "Severity": severity,
                         "CWEs": ", ".join(cwe_ids) if cwe_ids else "N/A",
-                        "Description": (
-                            description[:200] + "..." if description else "N/A"
-                        ),
+                        "Description": (description if description else "N/A"),
+                        "References": (references if references else "N/A"),
                     }
                 )
         return analyzed_advisories
@@ -245,14 +248,9 @@ def save_to_csv(info, owner, repo, csv_file):
         "Core Developers": info["core_developers_num"],
     }
 
-    csv_exists = os.path.exists(csv_file)
-
     repo_df = pd.DataFrame([repo_info])
 
-    if csv_exists:
-        repo_df.to_csv(csv_file, mode="a", header=False, index=False)
-    else:
-        repo_df.to_csv(csv_file, mode="w", header=True, index=False)
+    repo_df.to_csv(csv_file, mode="w", header=True, index=False)
 
     print(f"Basic repository information saved to {csv_file}")
 
@@ -299,18 +297,22 @@ def save_advisories_to_csv(info, owner, repo, advisories_file):
             "Severity": advisory.get("Severity"),
             "CWEs": advisory.get("CWEs"),
             "Description": advisory.get("Description"),
+            "References": advisory.get("References"),
+            # TODO: get the number of the commit links in the references here
+            "Commit Link Numbers": len(
+                [link for link in advisory.get("References") if "/commit/" in link]
+            ),
+            # TODO: get the commit links in references here
+            "Commit Links": [
+                link for link in advisory.get("References") if "/commit/" in link
+            ],
         }
         for advisory in info["security_advisories"]
     ]
 
     advisories_df = pd.DataFrame(advisories_info)
 
-    csv_exists = os.path.exists(advisories_file)
-
-    if csv_exists:
-        advisories_df.to_csv(advisories_file, mode="a", header=False, index=False)
-    else:
-        advisories_df.to_csv(advisories_file, mode="w", header=True, index=False)
+    advisories_df.to_csv(advisories_file, mode="w", header=True, index=False)
 
     print(f"Security advisories information saved to {advisories_file}")
 
