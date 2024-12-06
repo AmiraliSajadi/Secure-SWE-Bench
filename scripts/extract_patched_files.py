@@ -1,3 +1,21 @@
+"""
+This script processes the train set of the SWE-Bench dataset by retrieving all patched 
+Python files (excluding test files) in their original and patched states from GitHub 
+repositories using the GitHub API. It organizes these files into structured directories 
+for further analysis, while handling API rate limits and supporting customizable commit limits.
+
+Functions:
+- load_env: Loads environment variables for API authentication.
+- initialize_github_session: Sets up a GitHub API session.
+- check_rate_limit: Monitors and handles GitHub API rate limits.
+- prepare_directories: Creates directories for storing output files.
+- fetch_file_content: Retrieves file content from GitHub.
+- write_file_content: Saves file content to disk.
+- process_dataset: Main logic to process the SWE-Bench train set.
+- parse_arguments: Parses command-line arguments.
+- main: Entry point of the script.
+"""
+
 import argparse
 import base64
 import os
@@ -9,14 +27,14 @@ from dotenv import load_dotenv
 from tqdm import tqdm
 
 
-# Load environment variables
 def load_env():
+    """load environment variables"""
     load_dotenv()
     return os.getenv("GITHUB_API_KEY")
 
 
-# Initialize GitHub API session
 def initialize_github_session(api_key):
+    """Initialize GitHub API session"""
     session = requests.Session()
     session.headers.update(
         {
@@ -27,8 +45,8 @@ def initialize_github_session(api_key):
     return session
 
 
-# Check GitHub API rate limit
 def check_rate_limit(response):
+    """Check GitHub API rate limit"""
     remaining = int(response.headers.get("X-RateLimit-Remaining", 1))
     reset_time = int(response.headers.get("X-RateLimit-Reset", 0))
 
@@ -38,8 +56,8 @@ def check_rate_limit(response):
         time.sleep(reset_in + 1)
 
 
-# Prepare directories for storing files
 def prepare_directories(run_id):
+    """Prepare directories for storing files"""
     base_dir = os.path.dirname(os.path.abspath(__file__))
     run_dir = os.path.join(base_dir, "../data", run_id)
     original_dir = os.path.join(run_dir, "original")
@@ -49,8 +67,8 @@ def prepare_directories(run_id):
     return original_dir, patched_dir
 
 
-# Fetch file contents from GitHub
 def fetch_file_content(session, repo, commit_sha, file_path):
+    """Fetch file contents from GitHub"""
     url = f"https://api.github.com/repos/{repo}/contents/{file_path}?ref={commit_sha}"
     response = session.get(url)
     check_rate_limit(response)
@@ -61,14 +79,14 @@ def fetch_file_content(session, repo, commit_sha, file_path):
     return None
 
 
-# Write file content to disk
 def write_file_content(directory, filename, content):
+    """Write file content to disk"""
     with open(os.path.join(directory, filename), "w", encoding="utf-8") as f:
         f.write(content)
 
 
-# Main processing logic
 def process_dataset(run_id, max_commits, api_key):
+    """Main processing logic"""
     dataset = load_dataset("princeton-nlp/SWE-bench", split="train", streaming=True)
     session = initialize_github_session(api_key)
     original_dir, patched_dir = prepare_directories(run_id)
@@ -122,8 +140,8 @@ def process_dataset(run_id, max_commits, api_key):
         commit_count += 1
 
 
-# Argument parser
 def parse_arguments():
+    """Argument parser"""
     parser = argparse.ArgumentParser(description="Process SWE-bench dataset.")
     parser.add_argument(
         "--id", required=True, help="Run ID for organizing output files."
@@ -137,8 +155,8 @@ def parse_arguments():
     return parser.parse_args()
 
 
-# Entry point
 def main():
+    """Entry point"""
     args = parse_arguments()
     api_key = load_env()
     if not api_key:
